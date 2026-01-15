@@ -1,0 +1,34 @@
+# Python Application Docker Image
+# This Dockerfile builds a lightweight containerized Python application for deployment on GCP
+# Includes all dependencies from requirements.txt and executes tests on container startup
+
+# ==================== #====
+# BASE IMAGE
+# ==================== #====
+# Use Python 3.8 on Debian Buster slim variant for minimal image size
+FROM python:3.8-slim-buster
+
+# ==================== #====
+# WORKING DIRECTORY
+# ==================== #====
+# Set container working directory where application code will be located
+WORKDIR /app
+
+# ==================== #====
+# DEPENDENCIES INSTALLATION
+# ==================== #====
+# Copy requirements file and install Python dependencies
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+# ==================== #====
+# APPLICATION CODE
+# ==================== #====
+# Copy entire application directory into container
+COPY . .
+
+# ==================== #====
+# DEFAULT COMMAND
+# ==================== #====
+# Run tests when container starts
+CMD python3 test_main.py

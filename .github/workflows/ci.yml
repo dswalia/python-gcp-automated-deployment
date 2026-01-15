@@ -1,0 +1,60 @@
+# GitHub Actions Continuous Integration Workflow
+# Automatically runs tests on pull requests to main branch
+# Merges PR automatically if all tests pass
+
+name: Continuous Intergration
+
+# ==================== #====
+# TRIGGER CONFIGURATION
+# ==================== #====
+# Workflow runs on pull requests to main branch
+on:
+  pull_request:
+    branches:
+      - main
+
+# ==================== #====
+# ENVIRONMENT VARIABLES
+# ==================== #====
+# Configuration variables for the CI pipeline
+env:
+  PR_NUMBER: ${{ github.event.number }} # Pull request number for merge operations
+
+# ==================== #====
+# JOBS
+# ==================== #====
+
+jobs:
+  build:
+    # Job configuration
+    runs-on: ubuntu-latest # Latest Ubuntu runner
+
+    # ==================== #
+    # WORKFLOW STEPS
+    # ==================== #
+
+    steps:
+      # Step 1: Check out repository code
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Step 2: Build Docker image and run unit tests
+      - name: Test
+        id: test
+        run: |
+          cd ./app/
+          # Build Docker image for testing
+          docker build --tag unittest . 
+          # Run container with tests and capture exit code
+          # Suppresses log driver and captures only stdin/stdout/stderr
+          docker run -i --log-driver=none -a stdin -a stdout -a stderr --name test unittest; echo ::set-output name=exit_code::$?
+
+      # Step 3: Auto-merge PR if tests pass
+      - name: Merge pull request
+        if: steps.test.outputs.exit_code == 0 # Only run if tests succeeded (exit code 0)
+        run: |
+          # Use GitHub API to merge the pull request
+          curl -X PUT \
+          -H "Authorization: token ${{ secrets.PAT }}" \
+          https://api.github.com/repos/python-gcp-automated-deployment/pulls/$PR_NUMBER/merge \
+          -d '{"commit_title":"auto-approval"}'

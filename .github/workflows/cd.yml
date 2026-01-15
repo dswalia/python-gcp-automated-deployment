@@ -1,0 +1,73 @@
+# GitHub Actions Continuous Delivery Workflow
+# Automatically builds and pushes Docker images to Google Cloud Registry (GCR)
+# on push events to the main branch
+
+name: Continuous Delivery to Google Cloud Registry
+
+# ==================== #====
+# TRIGGER CONFIGURATION
+# ==================== #====
+# Workflow runs on push to main branch
+on:
+  push:
+    branches:
+      - main
+
+# ==================== #====
+# ENVIRONMENT VARIABLES
+# ==================== #====
+# Configuration for GCP and Docker image build/push
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT }} # GCP project ID from secrets
+  GAR_LOCATION: eu.gcr.io # Google Artifact Registry location (Europe)
+  IMAGE: welcome-page # Docker image name
+
+# ==================== #====
+# JOBS
+# ==================== #====
+
+jobs:
+  build:
+    # Job configuration
+    runs-on: ubuntu-latest # Latest Ubuntu runner
+    permissions:
+      contents: "read" # Read repository contents
+      id-token: "write" # Write OIDC token for GCP authentication
+
+    # ==================== #
+    # WORKFLOW STEPS
+    # ==================== #
+
+    steps:
+      # Step 1: Check out repository code
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Step 2: Authenticate with Google Cloud using service account
+      - name: Authenticate to Google Cloud
+        id: "auth"
+        uses: "google-github-actions/auth@v0"
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}" # GCP service account credentials
+
+      # Step 3: Set up Google Cloud SDK tools
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v0"
+
+      # Step 4: Configure Docker authentication for GCR
+      - name: Gcloud
+        run: |
+          gcloud auth configure-docker -q
+
+      # Step 5: Build Docker image with git metadata
+      - name: Build
+        run: |-
+          docker build \
+          --tag "$GAR_LOCATION/$PROJECT_ID/$IMAGE" . \
+          --build-arg GITHUB_SHA="$GITHUB_SHA" \
+          --build-arg GITHUB_REF="$GITHUB_REF" \
+
+      # Step 6: Push Docker image to Google Container Registry
+      - name: Publish
+        run: |-
+          docker push "$GAR_LOCATION/$PROJECT_ID/$IMAGE"
